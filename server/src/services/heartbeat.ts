@@ -10,6 +10,7 @@ import {
   agentRuntimeState,
   agentTaskSessions,
   agentWakeupRequests,
+  companies,
   heartbeatRunEvents,
   heartbeatRuns,
   issues,
@@ -28,7 +29,9 @@ import { costService } from "./costs.js";
 import { companySkillService } from "./company-skills.js";
 import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
-import { resolveDefaultAgentWorkspaceDir, resolveManagedProjectWorkspaceDir } from "../home-paths.js";
+import { resolveDefaultAgentWorkspaceDir, resolveManagedProjectWorkspaceDir, resolvePaperclipInstanceRoot } from "../home-paths.js";
+import { join as pathJoin } from "node:path";
+import { syncKnowledgeRepo } from "./knowledge-repo.js";
 import { summarizeHeartbeatRunResultJson } from "./heartbeat-run-summary.js";
 import {
   buildWorkspaceReadyComment,
@@ -2496,6 +2499,29 @@ export function heartbeatService(db: Db) {
           payload: meta as unknown as Record<string, unknown>,
         });
       };
+
+      // Sync company knowledge repo if configured, inject path into context
+      {
+        const companyRow = await db
+          .select({ knowledgeRepoUrl: companies.knowledgeRepoUrl, knowledgeRepoToken: companies.knowledgeRepoToken })
+          .from(companies)
+          .where(eq(companies.id, agent.companyId))
+          .then((rows) => rows[0] ?? null);
+        if (companyRow?.knowledgeRepoUrl) {
+          const dataDir = pathJoin(resolvePaperclipInstanceRoot(), "data");
+          const syncResult = await syncKnowledgeRepo(
+            dataDir,
+            agent.companyId,
+            companyRow.knowledgeRepoUrl,
+            companyRow.knowledgeRepoToken,
+          );
+          if (syncResult.ok) {
+            context.knowledgeRepoPath = syncResult.repoPath;
+          } else {
+            await onLog("stderr", "[paperclip] Knowledge repo sync failed: " + syncResult.error);
+          }
+        }
+      }
 
       const adapter = getServerAdapter(agent.adapterType);
       const authToken = adapter.supportsLocalAgentJwt

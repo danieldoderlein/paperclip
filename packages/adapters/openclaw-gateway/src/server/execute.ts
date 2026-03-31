@@ -446,6 +446,7 @@ function buildStandardPaperclipPayload(
     approvalId: wakePayload.approvalId,
     approvalStatus: wakePayload.approvalStatus,
     apiUrl: paperclipEnv.PAPERCLIP_API_URL ?? null,
+    knowledgeRepoPath: typeof ctx.context.knowledgeRepoPath === "string" ? ctx.context.knowledgeRepoPath : null,
   };
 
   if (workspace) {

@@ -36,6 +36,8 @@ export function CompanySettings() {
   const [companyName, setCompanyName] = useState("");
   const [description, setDescription] = useState("");
   const [brandColor, setBrandColor] = useState("");
+  const [knowledgeRepoUrl, setKnowledgeRepoUrl] = useState("");
+  const [knowledgeRepoToken, setKnowledgeRepoToken] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
 
@@ -45,6 +47,8 @@ export function CompanySettings() {
     setCompanyName(selectedCompany.name);
     setDescription(selectedCompany.description ?? "");
     setBrandColor(selectedCompany.brandColor ?? "");
+    setKnowledgeRepoUrl(selectedCompany.knowledgeRepoUrl ?? "");
+    setKnowledgeRepoToken(selectedCompany.knowledgeRepoToken ?? "");
     setLogoUrl(selectedCompany.logoUrl ?? "");
   }, [selectedCompany]);
 
@@ -79,6 +83,26 @@ export function CompanySettings() {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
     }
   });
+
+  const knowledgeRepoDirty =
+    !!selectedCompany &&
+    (knowledgeRepoUrl !== (selectedCompany.knowledgeRepoUrl ?? "") ||
+      knowledgeRepoToken !== (selectedCompany.knowledgeRepoToken ?? ""));
+
+  const knowledgeRepoMutation = useMutation({
+    mutationFn: (data: { knowledgeRepoUrl: string | null; knowledgeRepoToken: string | null }) =>
+      companiesApi.update(selectedCompanyId!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+    }
+  });
+
+  function handleSaveKnowledgeRepo() {
+    knowledgeRepoMutation.mutate({
+      knowledgeRepoUrl: knowledgeRepoUrl.trim() || null,
+      knowledgeRepoToken: knowledgeRepoToken.trim() || null,
+    });
+  }
 
   const inviteMutation = useMutation({
     mutationFn: () =>
@@ -375,6 +399,63 @@ export function CompanySettings() {
           )}
         </div>
       )}
+
+      {/* Knowledge Repository */}
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Knowledge Repository
+        </div>
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
+          <div className="text-xs text-muted-foreground">
+            Link a Git repository to give agents access to shared knowledge, specs, and deliverables.
+            All agents can read. Agents with write capability can commit output back to the repo.
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium">Repository URL</label>
+            <input
+              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              type="url"
+              value={knowledgeRepoUrl}
+              onChange={(e) => setKnowledgeRepoUrl(e.target.value)}
+              placeholder="https://github.com/org/repo"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium">Access Token</label>
+            <input
+              className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              type="password"
+              value={knowledgeRepoToken}
+              onChange={(e) => setKnowledgeRepoToken(e.target.value)}
+              placeholder="Personal access token or deploy key token"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Stored server-side. Used to clone and pull the repository. Leave blank for public repos.
+            </p>
+          </div>
+        </div>
+        {knowledgeRepoDirty && (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleSaveKnowledgeRepo}
+              disabled={knowledgeRepoMutation.isPending}
+            >
+              {knowledgeRepoMutation.isPending ? "Saving..." : "Save repository"}
+            </Button>
+            {knowledgeRepoMutation.isSuccess && (
+              <span className="text-xs text-muted-foreground">Saved</span>
+            )}
+            {knowledgeRepoMutation.isError && (
+              <span className="text-xs text-destructive">
+                {knowledgeRepoMutation.error instanceof Error
+                  ? knowledgeRepoMutation.error.message
+                  : "Failed to save"}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Hiring */}
       <div className="space-y-4">

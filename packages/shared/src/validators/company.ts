@@ -8,6 +8,8 @@ export const createCompanySchema = z.object({
   name: z.string().min(1),
   description: z.string().optional().nullable(),
   budgetMonthlyCents: z.number().int().nonnegative().optional().default(0),
+  knowledgeRepoUrl: z.string().url().nullable().optional(),
+  knowledgeRepoToken: z.string().nullable().optional(),
 });
 
 export type CreateCompany = z.infer<typeof createCompanySchema>;
@@ -20,6 +22,8 @@ export const updateCompanySchema = createCompanySchema
     requireBoardApprovalForNewAgents: z.boolean().optional(),
     brandColor: brandColorSchema,
     logoAssetId: logoAssetIdSchema,
+    knowledgeRepoUrl: z.string().url().nullable().optional(),
+    knowledgeRepoToken: z.string().nullable().optional(),
   });
 
 export type UpdateCompany = z.infer<typeof updateCompanySchema>;

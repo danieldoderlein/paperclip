@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "${PAPERCLIP_PORT:-3100}:3100"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       HOST: "0.0.0.0"
       PAPERCLIP_HOME: "/paperclip"

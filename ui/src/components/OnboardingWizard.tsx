@@ -859,8 +859,7 @@ export function OnboardingWizard() {
                             label: "OpenClaw Gateway",
                             icon: Bot,
                             desc: "Invoke OpenClaw via gateway protocol",
-                            comingSoon: true,
-                            disabledLabel: "Configure OpenClaw within the App"
+                            comingSoon: false
                           }
                         ].map((opt) => (
                           <button
