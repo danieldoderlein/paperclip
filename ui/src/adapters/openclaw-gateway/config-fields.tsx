@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Eye, EyeOff } from "lucide-react";
 import type { AdapterConfigFieldsProps } from "../types";
 import {
@@ -10,9 +11,18 @@ import {
   PayloadTemplateJsonField,
   RuntimeServicesJsonField,
 } from "../runtime-json-fields";
+import { openclawApi } from "../../api/openclaw";
+import { useCompany } from "../../context/CompanyContext";
 
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
+
+function toCompanySlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 function SecretField({
   label,
@@ -64,6 +74,43 @@ export function OpenClawGatewayConfigFields({
   eff,
   mark,
 }: AdapterConfigFieldsProps) {
+  const { selectedCompany } = useCompany();
+  const companySlug = selectedCompany ? toCompanySlug(selectedCompany.name) : "";
+
+  const { data: agentListData } = useQuery({
+    queryKey: ["openclaw", "agents"],
+    queryFn: () => openclawApi.listAgents(),
+    staleTime: 60_000,
+  });
+  const agentOptions = agentListData?.agents ?? [];
+
+  // Create mode state
+  const createAgentId = values?.openclawAgentId ?? "";
+  const createScope = values?.openclawAgentScope ?? "company";
+
+  // Edit mode: read agentId and derive scope from existing sessionKey
+  const editAgentId = eff("adapterConfig", "agentId", String(config.agentId ?? ""));
+  const existingSessionKey = String(config.sessionKey ?? "");
+  const derivedScope: "company" | "shared" =
+    existingSessionKey && !existingSessionKey.endsWith(":paperclip") ? "shared" : "company";
+  const editScope = eff("adapterConfig", "_openclawScope", derivedScope) as "company" | "shared";
+
+  function computeSessionKey(agentId: string, scope: "company" | "shared"): string {
+    if (!agentId) return "";
+    if (scope === "shared") return `agent:${agentId}:${companySlug}`;
+    return `agent:${agentId}:paperclip`;
+  }
+
+  function handleEditAgentChange(agentId: string) {
+    mark("adapterConfig", "agentId", agentId || undefined);
+    mark("adapterConfig", "sessionKey", computeSessionKey(agentId, editScope));
+  }
+
+  function handleEditScopeChange(scope: "company" | "shared") {
+    mark("adapterConfig", "_openclawScope", scope);
+    mark("adapterConfig", "sessionKey", computeSessionKey(editAgentId, scope));
+  }
+
   const configuredHeaders =
     config.headers && typeof config.headers === "object" && !Array.isArray(config.headers)
       ? (config.headers as Record<string, unknown>)
@@ -116,6 +163,67 @@ export function OpenClawGatewayConfigFields({
         />
       </Field>
 
+      <Field label="OpenClaw Agent">
+        <select
+          value={isCreate ? createAgentId : editAgentId}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (isCreate) {
+              set!({ openclawAgentId: val || undefined });
+            } else {
+              handleEditAgentChange(val);
+            }
+          }}
+          className={inputClass}
+        >
+          <option value="">— select agent —</option>
+          {agentOptions.map((id) => (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label="Agent scope">
+        <div className="flex gap-4 text-sm">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="radio"
+              name="openclawAgentScope"
+              value="company"
+              checked={(isCreate ? createScope : editScope) === "company"}
+              onChange={() => {
+                if (isCreate) set!({ openclawAgentScope: "company" });
+                else handleEditScopeChange("company");
+              }}
+            />
+            Company-specific
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="radio"
+              name="openclawAgentScope"
+              value="shared"
+              checked={(isCreate ? createScope : editScope) === "shared"}
+              onChange={() => {
+                if (isCreate) set!({ openclawAgentScope: "shared", openclawCompanySlug: companySlug });
+                else handleEditScopeChange("shared");
+              }}
+            />
+            Shared worker (scoped to {companySlug || "company"})
+          </label>
+        </div>
+        {(isCreate ? createAgentId : editAgentId) && (
+          <div className="mt-1 text-xs text-muted-foreground font-mono">
+            Session key: {computeSessionKey(
+              isCreate ? createAgentId : editAgentId,
+              isCreate ? createScope : editScope,
+            )}
+          </div>
+        )}
+      </Field>
+
       <PayloadTemplateJsonField
         isCreate={isCreate}
         values={values}
@@ -162,18 +270,6 @@ export function OpenClawGatewayConfigFields({
             </select>
           </Field>
 
-          {sessionStrategy === "fixed" && (
-            <Field label="Session key">
-              <DraftInput
-                value={eff("adapterConfig", "sessionKey", String(config.sessionKey ?? "paperclip"))}
-                onCommit={(v) => mark("adapterConfig", "sessionKey", v || undefined)}
-                immediate
-                className={inputClass}
-                placeholder="paperclip"
-              />
-            </Field>
-          )}
-
           <SecretField
             label="Gateway auth token (x-openclaw-token)"
             value={effectiveGatewayToken}
@@ -209,7 +305,7 @@ export function OpenClawGatewayConfigFields({
 
           <Field label="Wait timeout (ms)">
             <DraftInput
-              value={eff("adapterConfig", "waitTimeoutMs", String(config.waitTimeoutMs ?? "120000"))}
+              value={eff("adapterConfig", "waitTimeoutMs", String(config.waitTimeoutMs ?? "600000"))}
               onCommit={(v) => {
                 const parsed = Number.parseInt(v.trim(), 10);
                 mark(
@@ -220,7 +316,7 @@ export function OpenClawGatewayConfigFields({
               }}
               immediate
               className={inputClass}
-              placeholder="120000"
+              placeholder="600000"
             />
           </Field>
 

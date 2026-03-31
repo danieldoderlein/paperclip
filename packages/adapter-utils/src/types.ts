@@ -353,4 +353,7 @@ export interface CreateConfigValues {
   maxTurnsPerRun: number;
   heartbeatEnabled: boolean;
   intervalSec: number;
+  openclawAgentId?: string;
+  openclawAgentScope?: "company" | "shared";
+  openclawCompanySlug?: string;
 }
