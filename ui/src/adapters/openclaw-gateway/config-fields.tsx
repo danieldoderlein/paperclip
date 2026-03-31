@@ -149,7 +149,7 @@ export function OpenClawGatewayConfigFields({
         <DraftInput
           value={
             isCreate
-              ? values!.url
+              ? (values!.url || "ws://localhost:18789")
               : eff("adapterConfig", "url", String(config.url ?? ""))
           }
           onCommit={(v) =>
