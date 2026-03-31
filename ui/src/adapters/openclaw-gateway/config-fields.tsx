@@ -51,6 +51,7 @@ function SecretField({
           onCommit={onCommit}
           immediate
           type={visible ? "text" : "password"}
+          autoComplete="off"
           className={inputClass + " pl-8"}
           placeholder={placeholder}
         />
@@ -253,6 +254,7 @@ export function OpenClawGatewayConfigFields({
               }
               onCommit={(v) => mark("adapterConfig", "paperclipApiUrl", v || undefined)}
               immediate
+              autoComplete="off"
               className={inputClass}
               placeholder="https://paperclip.example"
             />
@@ -282,6 +284,7 @@ export function OpenClawGatewayConfigFields({
               value={eff("adapterConfig", "role", String(config.role ?? "operator"))}
               onCommit={(v) => mark("adapterConfig", "role", v || undefined)}
               immediate
+              autoComplete="off"
               className={inputClass}
               placeholder="operator"
             />
